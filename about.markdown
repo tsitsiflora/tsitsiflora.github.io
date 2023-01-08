@@ -4,15 +4,6 @@ title: About
 permalink: /about/
 ---
 
-This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](https://jekyllrb.com/)
+Born and raised in a small town in Zimbabwe. Studied at Harare Institute of Technology and obtained a Bachelors degree in Information Security and Assurance. Started out as a Python developer, working on web applications and APIs. Developed an interest in offensive security through reading bug bounty posts on Medium. Currently working to instill security in the development lifecycle of a small company in Harare.
 
-You can find the source code for Minima at GitHub:
-[jekyll][jekyll-organization] /
-[minima](https://github.com/jekyll/minima)
-
-You can find the source code for Jekyll at GitHub:
-[jekyll][jekyll-organization] /
-[jekyll](https://github.com/jekyll/jekyll)
-
-
-[jekyll-organization]: https://github.com/jekyll
+A huge fan of The Big Bang Theory and Silicon Valley. Can never get enough of ice cream. Still enjoys CTFs and plays around with them from time to time. Yet to conquer the Inyangani Mountain, located in the eastern highlands in Zimbabwe.

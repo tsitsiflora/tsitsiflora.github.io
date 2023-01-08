@@ -23,12 +23,12 @@ email: munikwatsitsi@gmail.com
 description: >- # this means to ignore newlines until "baseurl:"
   Hi, my name is Tsitsi Flora Munikwa. I specialize in information security
   stuff: vulnerability research, penetration testing, and secure coding. I
-  created this site to share my work, and to hep me remember things I've learned
+  created this site to share my work, and to help me remember things I've learned
   in the past. Thank you for being here.
 #baseurl: "" # the subpath of your site, e.g. /blog
 #url: "" # the base hostname & protocol for your site, e.g. http://example.com
-twitter_username: jekyllrb
-github_username:  jekyll
+twitter_username: tsitsi_flora
+github_username:  tsitsiflora
 
 # Build settings
 theme: minima
