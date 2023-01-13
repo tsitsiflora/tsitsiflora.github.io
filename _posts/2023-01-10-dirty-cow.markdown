@@ -50,7 +50,7 @@ The objective in this lab is to write to a read-only file using the Dirty Cow vu
 
 I'll start by creating a file as sudo, adding some text to it and modifying the privileges so that I only have read privileges to read the file. 
 
-![dirtycow0](images/dirtycow/dirtycow0.png)
+![dirtycow0](../images/dirtycow/dirtycow0.png)
 
 With a readable file ready, the next step is to edit the exploit. This exploit is made up of three threads: the main thread, the write thread and the madvise thread. The main thread maps our file to memory, finds where the pattern we want to replace is, and then creates two threads to exploit the Dirty COW race condition vulnerability in the OS kernel.
 
@@ -92,9 +92,9 @@ With a readable file ready, the next step is to edit the exploit. This exploit i
     }
 
 
-![dirtycow1](images/dirtycow/dirtycow1.png)
+![dirtycow1](../images/dirtycow/dirtycow1.png)
 
-![dirtycow2](images/dirtycow/dirtycow2.png)
+![dirtycow2](../images/dirtycow/dirtycow2.png)
 
 So first we are opening our file(note that is is being opened in read-only mode) and using the string function called `strstr` we are searching where `cow` is in the mapped memory, then we start two threads, writeThread and madviseThread.
 
@@ -115,7 +115,7 @@ The job of the writeThread is to replace the `cow` string with `wow`(or whatever
     }   
 
 
-![dirtycow3](images/dirtycow/dirtycow3.png)
+![dirtycow3](../images/dirtycow/dirtycow3.png)
 
 
 The madvise thread does only one thing: discarding the private copy of the mapped memory, so the page table can point back to the original mapped memory.
@@ -132,25 +132,25 @@ If the write() and the madvise() system calls are invoked alternatively, i.e., o
 
 Okay. Exploit is ready. Let's compile and execute. 
 
-![dirtycow4](images/dirtycow/dirtycow4.png)
+![dirtycow4](../images/dirtycow/dirtycow4.png)
 
 And we managed to write to the file. Now this is a very simple example to prove the concept. We can apply this to write to importantfiles in the Unix OS such as the `passwd` file. This allows us to change the privilieges that a normal user has, and upgrading them to a root user. See below.
 
 We use sudo to create a user.
 
-![dirtycow5](images/dirtycow/dirtycow5.png)
+![dirtycow5](../images/dirtycow/dirtycow5.png)
 
 See the UID is 1001, meaning `elliot` is just a normal user.
 
-![dirtycow6](images/dirtycow/dirtycow6.png)
+![dirtycow6](../images/dirtycow/dirtycow6.png)
 
 We modify our exploit and run.
 
-![dirtycow7](images/dirtycow/dirtycow7.png)
+![dirtycow7](../images/dirtycow/dirtycow7.png)
 
 We managed to replace the `elliot:x:1001` with `elliot:x:0000`, moving elliot into the root group, hence giving him root privileges.
 
-![dirtycow9](images/dirtycow/dirtycow9.png)
+![dirtycow9](../images/dirtycow/dirtycow9.png)
 
 There are a lot of use cases for this. Imagine an attacker modifies only the `1001` UID section to `0000`, making all users root users. Overall, a super simple and easy to understand exploit.
 
