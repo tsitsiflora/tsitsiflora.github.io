@@ -9,7 +9,7 @@ categories: security
 
 Dirty COW stands for Dirty copy-on-write. I actually found this out while doing my research for this exercise. I've read about the vulnerability previously, but I didn't have hands on experience with it, or understand it in depth. So, I will be trying to do that in this blog post, and hopefully it's simple enough that you understand it too.
 
-The Dirty COW vulnerability is a very interesting case of a race condition vulnerability. It existed in the Linux kernel since 2007 and was discovered in 2016, and because the kernel runs as root, it can be exploited as a priviledge escalation vulnerability. This means attackers can gain root priviledges by exploiting it, from a low-level user.
+The Dirty COW vulnerability is a very interesting case of a race condition vulnerability. It existed in the Linux kernel since 2007 and was discovered in 2016, and because the kernel runs as root, it can be exploited as a privile       ge escalation vulnerability. This means attackers can gain root privileges by exploiting it, from a low-level user.
 
 ### What is a race condition? 
 
@@ -25,7 +25,7 @@ but you also have another variable `b`:
 
     b = a
 
-Even though these  are two variables here, they both point to the same memory object, since there is no need to take up twice the amount of memory for identical values. The OS will wait until the duplicate is modified, that is when it will allocate seperate memory for the other variable. 
+Even though these  are two variables here, they both point to the same memory object, since there is no need to take up twice the amount of memory for identical values. The OS will wait until the duplicate is modified, that is when it will allocate separate memory for the other variable. 
 
 You modify b:
 
@@ -120,7 +120,7 @@ The job of the writeThread is to replace the `cow` string with `wow`(or whatever
 
 The madvise thread does only one thing: discarding the private copy of the mapped memory, so the page table can point back to the original mapped memory.
 
-If the write() and the madvise() system calls are invoked alternatively, i.e., one is invoked only after the other is finished, the write operation will always be performed on the private copy, and we will never be able to modify the target file. The only way for the attack to succeed is to perform the madvise() system call while the write() system call is still running. We cannot always achieve that, so we need to try many times. As long as the probability is not extremely low, we have a chance. That is why in the threads, we run the two system calls in an infinite loop.
+If the write() and the madvise() system calls are invoked alternatively, i.e., one is invoked only after the other is finished, the write operation will always be performed on the private copy, and we will never be able to modify the target file. The only way for the attack to succeed is to perform the madvise() system call while the write() system call is still running. We cannot always achieve that, so we need to try many times. As long as the probability is not extremely low, we have a chance. That is why in the threads we run the two system calls in an infinite loop.
 
     void *madviseThread(void *arg)
     {
@@ -134,7 +134,7 @@ Okay. Exploit is ready. Let's compile and execute.
 
 ![dirtycow4](../images/dirtycow/dirtycow4.png)
 
-And we managed to write to the file. Now this is a very simple example to prove the concept. We can apply this to write to importantfiles in the Unix OS such as the `passwd` file. This allows us to change the privilieges that a normal user has, and upgrading them to a root user. See below.
+And we managed to write to the file. Now this is a very simple example to prove the concept. We can apply this to write to important files in the Unix OS such as the `passwd` file. This allows us to change the privileges that a normal user has, and upgrading them to a root user. See below.
 
 We use sudo to create a user.
 
@@ -154,7 +154,7 @@ We managed to replace the `elliot:x:1001` with `elliot:x:0000`, moving elliot in
 
 There are a lot of use cases for this. Imagine an attacker modifies only the `1001` UID section to `0000`, making all users root users. Overall, a super simple and easy to understand exploit.
 
-I really enjoyed going in-depth to try and understand this vulnerability. Again, I oversimplified so I can understand it, (and you too)but the kernel has a lot of layers to it.
+I really enjoyed going in-depth to try and understand this vulnerability. Again, I oversimplified so I can understand it, (and you too)but the kernel has a lot of layers to it. I am however trying to put out more in-depth long form type of posts instead of short writeups. And this was a great starter to that.
 
 Cheers!
 
