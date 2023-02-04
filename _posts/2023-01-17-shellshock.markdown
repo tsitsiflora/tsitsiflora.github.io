@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Shellshock Vulnerability: An analysis"
-date:   2023-01-17 22:05:04 +0200
+#date:   2023-01-17 22:05:04 +0200
 categories: security
 ---
 
