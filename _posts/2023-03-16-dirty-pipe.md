@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Dirty Pipe Vulnerability: An analysis"
-date:   2023-03-16 15:49:04 +0200
+date:   2023-03-16 12:00:04 +0200
 categories: security
 ---
 
@@ -57,3 +57,20 @@ Basically, page slicing is a performance trick to merge data between different p
 ### Back to the PIPE_BUF_FLAG_CAN_MERGE Flag
 
 For a page to be eligible to be merged, the PIPE_BUF_FLAG_CAN_MERGE flag must be set on the page cache. This flag is set by the kernel when the page becomes full. If the page cache is then emptied, the PIPE_BUF_FLAG_CAN_MERGE flag is retained. This then becomes an issue as you’ll soon see.
+
+## Fitting it all together
+
+In the [disclosure post](https://dirtypipe.cm4all.com/), Max Kellman describes how they stumbled upon the vulnerability, all the tests he did to confirm it is a kernel vulnerability and also published an exploit. 
+
+Here is how an attacker can exploit the CVE-2022-0847:
+
+They first need to access a shell on a system through some means. This can be using a normal user account or a service account. Next the attacker targets a file that they would like to write to, and they should have read privileges to that file. For example, password and configuration files in `/etc`. The attacker runs a program to open a pipe, fills page caches with random bytes so that the PIPE_BUF_FLAG_CAN_MERGE flag is set. They then empty and replace it with the data they want to overwrite with.  The PIPE_BUF_FLAG_CAN_MERGE flag causes the new data to be merged back into the original target file and circumvents the read-only restriction.
+
+## Exploit code analysis
+
+1. The exploit reads the target file (which has read permission) so that it gets cached in the page cache.
+2. Then, the exploit creates a pipe in a special way such that it has the PIPE_BUF_FLAG_CAN_MERGE flag set.
+3. Next, the exploit uses the splice() system call to make the pipe point to the location of the page cache where the desired data of the file is cached.
+4. Finally, we write arbitrary data into the pipe. This data will overwrite the cached file page & because PIPE_BUF_FLAG_CAN_MERGE is set, it ultimately overwrites the file on the disk, thus accomplishing our task.
+
+The exploit that I am using can be found [here](https://github.com/Arinerron/CVE-2022-0847-DirtyPipe-Exploit).
